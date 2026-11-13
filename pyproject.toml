@@ -1,0 +1,27 @@
+[project]
+name = "webchat-agent"
+version = "0.1.0"
+description = "Use free web chats (GLM, Qwen, Kimi, DeepSeek, Gemini) as agents through a real browser: MCP server, CLI, OpenAI-compatible API."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = ["playwright>=1.45", "mcp>=1.20"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+webchat = "webchat.cli:main"
+webchat-mcp = "webchat.mcp_server:main"
+webchat-api = "webchat.openai_api:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["webchat"]
+
+[tool.pytest.ini_options]
+addopts = "-q --basetemp=.pytest_run"
+asyncio_mode = "auto"

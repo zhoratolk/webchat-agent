@@ -1,0 +1,203 @@
+{
+  "_doc": "One entry per web chat. CSS selectors (Playwright syntax: :has-text(), :text-is() work). Steps: {click} | {pick:[...]} first visible+enabled wins | {key, on} | {wait}. 'verified' = the date the selectors were last checked against the live site; null = written from the site's known layout, check before trusting.",
+  "glm": {
+    "name": "GLM (chat.z.ai)",
+    "home": "https://chat.z.ai/",
+    "chat_url": "/c/",
+    "input": "#chat-input",
+    "send": "#send-message-button",
+    "stop": "button[aria-label='Stop']",
+    "message": ".chat-assistant",
+    "answer": ".chat-markdown",
+    "thinking": ".thinking-chain-container",
+    "copy": "button[aria-label='Copy']",
+    "file_input": "input[type=file]",
+    "login_wall": [],
+    "model_steps": [
+      {
+        "click": "button[aria-label='Select a model']"
+      },
+      {
+        "pick": [
+          "button[aria-label='model-item']:has(:text-is('GLM-5.3'))",
+          "button[aria-label='model-item']:has(:text-is('GLM-5.2'))",
+          "button[aria-label='model-item']:has(:text-is('GLM-5.3-Flash'))"
+        ]
+      },
+      {
+        "click": "button[aria-label='Select a model']",
+        "optional": true
+      },
+      {
+        "key": "End",
+        "on": "[role=slider]",
+        "optional": true
+      },
+      {
+        "key": "Escape"
+      }
+    ],
+    "model_label": "button[aria-label='Select a model']",
+    "model_option": "button[aria-label='model-item']:has(:text-is('{name}'))",
+    "verified": "2026-11-13"
+  },
+  "qwen": {
+    "name": "Qwen (chat.qwen.ai)",
+    "home": "https://chat.qwen.ai/",
+    "chat_url": "/c/",
+    "input": "textarea.message-input-textarea",
+    "send": "enter",
+    "stop": ".stop-button, [aria-label*='Stop'], [aria-label*='Остановить']",
+    "message": ".qwen-chat-message-assistant, [class*='message-assistant']",
+    "answer": ".qwen-markdown, [class*='markdown']",
+    "thinking": "[class*='thinking'], [class*='reasoning']",
+    "copy": "[aria-label*='Copy'], [aria-label*='Копировать']",
+    "file_input": "input[type=file]",
+    "login_wall": [
+      "text=В каком году вы родились",
+      "text=What year were you born"
+    ],
+    "model_steps": [
+      {
+        "click": "[aria-label='Select Model']"
+      },
+      {
+        "pick": [
+          "[role=option]:has-text('Qwen4-Max')",
+          "[role=option]:has-text('Qwen3.8-Max')",
+          "[role=option]:has-text('Max')"
+        ]
+      },
+      {
+        "click": ".chat-input-container :text-is('Авто'), :text-is('Auto')",
+        "optional": true
+      },
+      {
+        "pick": [
+          "[role=menuitem]:text-is('Мышление')",
+          "[role=menuitem]:text-is('Thinking')"
+        ],
+        "optional": true
+      },
+      {
+        "key": "Escape"
+      }
+    ],
+    "model_label": "[aria-label='Select Model']",
+    "model_option": "[role=option]:has-text('{name}')",
+    "verified": null
+  },
+  "kimi": {
+    "name": "Kimi (kimi.com)",
+    "home": "https://www.kimi.com/",
+    "chat_url": "/chat/",
+    "input": ".chat-input-editor",
+    "send": "enter",
+    "stop": ".send-button-container.stop, [class*='stop']",
+    "message": ".chat-content-item-assistant, [class*='segment-assistant']",
+    "answer": ".markdown",
+    "thinking": "[class*='thinking'], [class*='think-stage']",
+    "copy": "[class*='copy']",
+    "file_input": "input[type=file]",
+    "login_wall": [
+      "text=手机号码登录",
+      "text=Log in with phone"
+    ],
+    "model_steps": [
+      {
+        "click": "[data-testid=model-select-trigger]"
+      },
+      {
+        "pick": [
+          "button[role=menuitemradio]:has-text('K3.1 Pro')",
+          "button[role=menuitemradio]:has-text('Pro')"
+        ]
+      },
+      {
+        "click": "[data-testid=model-select-trigger]"
+      },
+      {
+        "click": "button[role=menuitem]:has-text('思考强度'), button[role=menuitem]:has-text('Thinking')",
+        "optional": true
+      },
+      {
+        "pick": [
+          "button[role=menuitemradio]:has-text('极致')",
+          "button[role=menuitemradio]:has-text('Max')"
+        ],
+        "optional": true
+      },
+      {
+        "key": "Escape"
+      }
+    ],
+    "model_label": "[data-testid=model-select-trigger]",
+    "model_option": "button[role=menuitemradio]:has-text('{name}')",
+    "verified": null
+  },
+  "deepseek": {
+    "name": "DeepSeek (chat.deepseek.com)",
+    "home": "https://chat.deepseek.com/",
+    "chat_url": "/a/chat/",
+    "input": "textarea",
+    "send": "enter",
+    "stop": "[aria-label*='Stop'], [class*='stop']",
+    "message": "[class*='ds-message']:has(.ds-markdown)",
+    "answer": ".ds-markdown",
+    "thinking": "[class*='ds-think'], [class*='thinking']",
+    "copy": "[class*='copy']",
+    "file_input": "input[type=file]",
+    "login_wall": [
+      "url:/sign_in"
+    ],
+    "model_steps": [
+      {
+        "pick": [
+          "[role=button]:has-text('DeepThink'):not([class*='selected'])",
+          "[role=button]:has-text('深度思考'):not([class*='selected'])"
+        ],
+        "optional": true
+      }
+    ],
+    "model_label": null,
+    "model_option": null,
+    "verified": null
+  },
+  "gemini": {
+    "name": "Gemini (gemini.google.com)",
+    "home": "https://gemini.google.com/app",
+    "chat_url": "/app/",
+    "input": "rich-textarea .ql-editor",
+    "send": "button.send-button",
+    "stop": "button[aria-label*='Stop']",
+    "message": "model-response",
+    "answer": "message-content .markdown",
+    "thinking": "model-thoughts",
+    "copy": "copy-button button, [data-test-id=copy-button]",
+    "file_input": "input[type=file]",
+    "login_wall": [
+      "url:accounts.google.com",
+      "url:google.com/sorry"
+    ],
+    "model_steps": [
+      {
+        "click": "[data-test-id=bard-mode-menu-button]",
+        "optional": true
+      },
+      {
+        "pick": [
+          "[role=menuitemradio]:has-text('Pro')",
+          "[role=menuitem]:has-text('Pro')",
+          "[role=menuitemradio]:has-text('Thinking')"
+        ],
+        "optional": true
+      },
+      {
+        "key": "Escape"
+      }
+    ],
+    "model_label": "[data-test-id=bard-mode-menu-button]",
+    "model_option": "[role=menuitemradio]:has-text('{name}')",
+    "verified": null
+  }
+}

@@ -1,0 +1,103 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>fake chat</title>
+<style>
+  body { font-family: sans-serif; margin: 0; }
+  #log { padding: 10px 10px 140px; }
+  #bar { position: fixed; bottom: 0; left: 0; right: 0; background: #eee; padding: 10px; }
+  #menu { display: none; border: 1px solid #999; background: white; }
+  #menu.open { display: block; }
+  .locked { opacity: .5; }
+  .modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #0006; z-index: 100; }
+  .modal > div { background: white; padding: 40px; }
+</style></head>
+<body>
+<div id="log"></div>
+<div id="bar">
+  <button id="model" aria-label="Select a model">Small</button>
+  <div id="menu">
+    <button class="opt aria-disabled:cursor-not-allowed locked" disabled>Huge</button>
+    <button class="opt aria-disabled:cursor-not-allowed">Big</button>
+    <button class="opt aria-disabled:cursor-not-allowed">Small</button>
+    <input type="range" role="slider" id="effort" min="0" max="3" value="1">
+  </div>
+  <input type="file" id="file" multiple style="display:none">
+  <textarea id="in" placeholder="Send a message"></textarea>
+  <button id="send" aria-label="Send">Send</button>
+  <button id="stop" aria-label="Stop" style="display:none">Stop</button>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const state = { model: 'Small', files: [] };
+$('#model').onclick = () => $('#menu').classList.toggle('open');
+document.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+  state.model = b.textContent; $('#model').textContent = b.textContent; $('#menu').classList.remove('open');
+});
+$('#file').onchange = e => { state.files = [...e.target.files].map(f => f.name); };
+const chatId = () => (location.hash.match(/#\/c\/(\w+)/) || [])[1];
+const store = id => JSON.parse(localStorage.getItem('fake-' + id) || '[]');
+function render(md, html) {
+  const turn = document.createElement('div');
+  turn.className = 'turn';
+  turn.innerHTML = `<div class="assistant"><div class="think">thinking about it…</div><div class="md"></div></div>
+    <div class="actions"></div>`;
+  $('#log').appendChild(turn);
+  return turn;
+}
+function finish(turn, md) {
+  const copy = document.createElement('button');
+  copy.setAttribute('aria-label', 'Copy');
+  copy.textContent = 'copy';
+  copy.onclick = () => navigator.clipboard.writeText(md).catch(() => {});
+  turn.querySelector('.actions').appendChild(copy);
+}
+function load() {
+  $('#log').innerHTML = '';
+  for (const m of store(chatId())) {
+    const u = document.createElement('div'); u.className = 'user'; u.textContent = m.q; $('#log').appendChild(u);
+    const t = render(); t.querySelector('.md').innerHTML = m.html; finish(t, m.md);
+  }
+}
+window.addEventListener('hashchange', load);
+load();
+function modal(text) {
+  const m = document.createElement('div'); m.className = 'modal'; m.setAttribute('role', 'dialog');
+  m.innerHTML = `<div>${text}</div>`; document.body.appendChild(m);
+}
+$('#send').onclick = () => {
+  const q = $('#in').value.trim();
+  if (!q) return;
+  $('#in').value = '';
+  if (q === 'LOGIN') return modal('Sign in to continue chatting');
+  if (q === 'CAPTCHA') return modal('Please complete security verification: drag the slider');
+  if (!chatId()) history.pushState(null, '', '#/c/' + Math.random().toString(36).slice(2, 10));   // like SPAs: no reload
+  const u = document.createElement('div'); u.className = 'user'; u.textContent = q; $('#log').appendChild(u);
+  const turns = store(chatId()).length + 1;
+  const md = `Answer ${turns} from **${state.model}** effort ${$('#effort').value}` +
+    (state.files.length ? ` files: ${state.files.join(', ')}` : '') +
+    `\n\n| q | len |\n| --- | --- |\n| ${q.slice(0, 20)} | ${q.length} |\n\n\`\`\`python\nprint(${turns})\n\`\`\``;
+  const html = `<p>Answer ${turns} from <strong>${state.model}</strong> effort ${$('#effort').value}` +
+    (state.files.length ? ` files: ${state.files.join(', ')}` : '') + `</p>` +
+    `<table><tr><th>q</th><th>len</th></tr><tr><td>${q.slice(0, 20)}</td><td>${q.length}</td></tr></table>` +
+    `<div class="code"><button aria-label="Copy" onclick="navigator.clipboard.writeText('print(${turns})')">copy code</button>` +
+    `<pre><code class="language-python">print(${turns})</code></pre></div>`;
+  const turn = render();
+  $('#send').style.display = 'none'; $('#stop').style.display = '';
+  const el = turn.querySelector('.md');
+  let i = 0;
+  const words = html.split(/(?=<)/);
+  const tick = setInterval(() => {   // stream the html in pieces, with a pause mid-way like a thinking model
+    i++;
+    el.innerHTML = words.slice(0, i).join('');
+    if (i >= words.length) {
+      clearInterval(tick);
+      setTimeout(() => {
+        $('#stop').style.display = 'none'; $('#send').style.display = '';
+        finish(turn, md);
+        const all = store(chatId()); all.push({ q, md, html }); localStorage.setItem('fake-' + chatId(), JSON.stringify(all));
+        state.files = [];
+      }, 400);
+    }
+  }, i === 3 ? 1500 : 150);
+};
+</script>
+</body></html>

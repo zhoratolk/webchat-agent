@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.pytest_tmp/
+*.egg-info/
+config.json
+threads/
+shots/
+chrome-profile/
+.pytest_run/
