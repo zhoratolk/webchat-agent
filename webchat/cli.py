@@ -13,7 +13,7 @@ import asyncio
 import sys
 from pathlib import Path
 
-from . import config, engine, threads
+from . import config, engine, threads, usage
 from .browser import Session
 
 
@@ -39,6 +39,8 @@ def main() -> None:
     for name in ("status", "open"):
         sub.add_parser(name).add_argument("site")
     sub.add_parser("sites")
+    u = sub.add_parser("usage", help="asks per site, errors, sizes, quota hits")
+    u.add_argument("--days", type=float, default=1)
     sub.add_parser("threads")
     h = sub.add_parser("history")
     h.add_argument("thread")
@@ -51,8 +53,10 @@ def main() -> None:
         session = Session(cfg)
         try:
             if args.cmd == "ask":
-                r = await engine.ask(session, args.site, text(args.message), args.file, args.thread, args.new,
-                                     args.model, args.timeout)
+                r = await engine.ask_first(session, args.site.split(","), text(args.message), args.file, args.thread,
+                                           args.new, args.model, args.timeout)
+                for k in r.get("skipped", []):
+                    print(f"[skipped {k['site']}: {k['kind']}]")
                 print(f"[{r['site']} · {r['model'] or '?'} · {r['seconds']} s · {r['url']}]")
                 print(r["answer"])
             elif args.cmd == "council":
@@ -75,6 +79,8 @@ def main() -> None:
     if args.cmd == "sites":
         for k, v in cfg["site_defs"].items():
             print(f"{k:9} {v.get('home', ''):32} verified={v.get('verified')}")
+    elif args.cmd == "usage":
+        print(engine.dumps(usage.summary(cfg, args.days)))
     elif args.cmd == "threads":
         for t in threads.listing(cfg):
             print(f"{t['updated']}  {t['site']:8} {t['turns']:3d} turns  {t['name']}  {t['url']}")

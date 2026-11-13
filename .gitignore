@@ -7,3 +7,5 @@ threads/
 shots/
 chrome-profile/
 .pytest_run/
+answers/
+usage.jsonl

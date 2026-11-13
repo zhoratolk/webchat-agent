@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import tempfile
 import time
@@ -12,6 +13,7 @@ from pathlib import Path
 from playwright.async_api import Locator, Page
 
 from . import threads as T
+from . import usage as U
 from .browser import Session
 from .config import PKG
 
@@ -155,7 +157,7 @@ class Chat:
 
     async def run_steps(self, steps: list[dict]) -> None:
         for st in steps:
-            secs = 2.0 if st.get("optional") else 10.0
+            secs = 1.2 if st.get("optional") else 10.0
             try:
                 if "click" in st:
                     loc = await self._first([st["click"]], visible, secs)
@@ -307,7 +309,61 @@ async def ask(session: Session, site: str, message: str, files: list[str] | None
               new_chat: bool = False, model: str | None = None, timeout: float | None = None) -> dict:
     """One message to a web chat. thread: a name to keep talking in the same conversation (its URL is saved);
     new_chat: start over (also for a thread: its old conversation is replaced). Returns {answer, site, model, url,
-    thread, new_chat, seconds}."""
+    thread, new_chat, seconds}. Every ask, answered or not, goes to the usage log."""
+    t0 = time.time()
+    try:
+        res = await _ask(session, site, message, files, thread, new_chat, model, timeout)
+    except Exception as e:
+        U.log(session.cfg, site=site, thread=thread, chars_in=len(message), files=len(files or []), chars_out=0,
+              seconds=round(time.time() - t0, 1), kind=getattr(e, "kind", "error"))
+        raise
+    U.log(session.cfg, site=site, thread=thread, chars_in=len(message), files=len(files or []),
+          chars_out=len(res["answer"]), seconds=res["seconds"], kind="ok")
+    return res
+
+
+# a site that is out of quota, wants a human or broke its layout: worth trying the next one
+FALLBACK_KINDS = ("login", "captcha", "limit", "timeout", "selector")
+
+
+async def ask_first(session: Session, sites: list[str], message: str, files: list[str] | None = None,
+                    thread: str | None = None, new_chat: bool = False, model: str | None = None,
+                    timeout: float | None = None) -> dict:
+    """ask() on the first site that answers, in the given order. A thread that already lives on one site stays there
+    (its context is in that chat). The result says which sites were skipped and why: {..., skipped: [{site, kind}]}."""
+    t = T.load(session.cfg, thread) if thread and not new_chat else None
+    if t:
+        sites = [t["site"]]
+    skipped = []
+    for i, s in enumerate(sites):
+        try:
+            res = await ask(session, s, message, files, thread, new_chat, model, timeout)
+            return res | {"skipped": skipped}
+        except WebChatError as e:
+            if e.kind not in FALLBACK_KINDS or i == len(sites) - 1:
+                raise
+            skipped.append({"site": s, "kind": e.kind, "error": str(e)[:200]})
+    raise WebChatError("input", "no sites given")
+
+
+def clip(cfg: dict, res: dict, max_chars: int | None) -> dict:
+    """Keep an agent's context small: an answer longer than max_chars is saved whole to answers/ and only its head is
+    returned, with answer_file (read the rest from there when needed) and answer_chars."""
+    a = res.get("answer")
+    if not a or not max_chars or len(a) <= max_chars:
+        return res
+    d = Path(cfg["answers"])
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / f"{time.strftime('%m%d-%H%M%S')}-{res.get('site', 'x')}-{os.getpid()}.md"
+    p.write_text(a, encoding="utf-8")
+    cut = a.rfind("\n", 0, max_chars)
+    head = a[:cut if cut > max_chars // 2 else max_chars]
+    return res | {"answer": head + f"\n\n[… cut at {len(head)} of {len(a)} characters; full answer: {p}]",
+                  "answer_file": str(p), "answer_chars": len(a)}
+
+
+async def _ask(session: Session, site: str, message: str, files: list[str] | None = None, thread: str | None = None,
+               new_chat: bool = False, model: str | None = None, timeout: float | None = None) -> dict:
     cfg = session.cfg
     files = [str(Path(f).resolve()) for f in files or []]
     for f in files:

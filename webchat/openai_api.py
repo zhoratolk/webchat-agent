@@ -77,8 +77,8 @@ def serve(port: int) -> None:
                 thread = body.get("thread") or body.get("user")
                 msgs = body["messages"]
                 prompt = text_of(msgs[-1]["content"]) if thread else fold(msgs)
-                fut = asyncio.run_coroutine_threadsafe(
-                    engine.ask(session, site, prompt, thread=thread, new_chat=not thread), loop)
+                fut = asyncio.run_coroutine_threadsafe(   # model "deepseek,qwen": first site that answers
+                    engine.ask_first(session, site.split(","), prompt, thread=thread, new_chat=not thread), loop)
                 r = fut.result()
             except engine.WebChatError as e:
                 return self._send(503 if e.kind in ("login", "captcha", "limit") else 500,

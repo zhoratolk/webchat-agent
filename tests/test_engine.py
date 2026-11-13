@@ -38,7 +38,7 @@ async def session(tmp_path):
     profile = tempfile.mkdtemp(prefix="webchat-test-")
     cfg = config.load() | {"profile": profile, "cdp_port": 9355, "proxy": None, "headless": True,
                            "threads": str(tmp_path / "threads"), "shots": str(tmp_path / "shots"), "stable": 1.0,
-                           "timeout": 60}
+                           "timeout": 60, "usage": str(tmp_path / "usage.jsonl"), "answers": str(tmp_path / "answers")}
     cfg["site_defs"] = {"fake": SITE}
     s = Session(cfg)
     yield s
@@ -122,3 +122,21 @@ async def test_dom_markdown_skips_reasoning_blocks_and_code_headers(session):
     await page.set_content("<div role='dialog'>Sign in to get more <button id='x' onclick='this.parentNode.remove()'>x"
                            "</button></div>")
     assert await nag.wall() is None
+
+
+async def test_next_site_answers_when_the_first_needs_a_human_and_usage_is_logged(session):
+    session.cfg["site_defs"]["walled"] = dict(SITE, name="Walled", login_wall=["url:fake_chat"])
+    r = await engine.ask_first(session, ["walled", "fake"], "hello", thread="fb")
+    assert r["site"] == "fake" and r["skipped"][0]["site"] == "walled" and r["skipped"][0]["kind"] == "login"
+    assert threads.load(session.cfg, "fb")["site"] == "fake"
+    s = __import__("webchat.usage", fromlist=["x"]).summary(session.cfg)
+    assert s["walled"]["errors"] == {"login": 1} and s["fake"]["ok"] == 1 and s["fake"]["chars_in"] == 5
+
+
+def test_long_answers_are_clipped_to_a_file(tmp_path):
+    cfg = {"answers": str(tmp_path / "a")}
+    long = "\n".join(f"line {i}" for i in range(1000))
+    r = engine.clip(cfg, {"answer": long, "site": "glm"}, 500)
+    assert len(r["answer"]) < 800 and r["answer_chars"] == len(long)
+    assert Path(r["answer_file"]).read_text(encoding="utf-8") == long
+    assert engine.clip(cfg, {"answer": "short"}, 500) == {"answer": "short"}

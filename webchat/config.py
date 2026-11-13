@@ -15,6 +15,8 @@ DEFAULTS = {
     "proxy": None,                        # e.g. "socks5://127.0.0.1:10808"
     "threads": str(ROOT / "threads"),
     "shots": str(ROOT / "shots"),         # screenshots saved when a site needs a human
+    "answers": str(ROOT / "answers"),     # full text of answers longer than an agent asked to receive
+    "usage": str(ROOT / "usage.jsonl"),   # one line per ask: site, sizes, seconds, ok or error kind
     "timeout": 900,                       # seconds to wait for one answer (thinking models are slow)
     "stable": 3.0,                        # the answer must stop changing for this long after the stop button is gone
     "long_message": 30000,                # longer messages go as an attached .md file where the site takes files
