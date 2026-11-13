@@ -90,7 +90,17 @@ class Chat:
             return None
 
     async def wall(self) -> str | None:
-        """Text of the first login wall / blocking dialog that is showing, else None."""
+        """Text of the first login wall / blocking dialog that is showing, else None.
+        Closable nags listed in the site's `dismiss` (e.g. a "sign in for more" popup with an X) are closed first;
+        that only presses the popup's own close button, it never signs in, accepts terms or answers anything."""
+        for d in self.s.get("dismiss", []):
+            loc = self.page.locator(d)
+            try:
+                if await visible(loc):
+                    await loc.first.click(timeout=3000)
+                    await asyncio.sleep(0.5)
+            except Exception:  # noqa: BLE001 - popup went away by itself
+                pass
         for w in self.s.get("login_wall", []):
             if w.startswith("url:"):
                 if w[4:] in self.page.url:
@@ -131,28 +141,38 @@ class Chat:
             return True   # the saved conversation is gone: the site fell back to a new chat
         return url is None
 
+    async def _first(self, sels: list[str], check, secs: float):
+        """First locator among sels passing check, polling up to secs (pages and menus render late)."""
+        t0 = time.time()
+        while True:
+            for sel in sels:
+                loc = self.page.locator(sel)
+                if await check(loc):
+                    return loc
+            if time.time() - t0 >= secs:
+                return None
+            await asyncio.sleep(0.4)
+
     async def run_steps(self, steps: list[dict]) -> None:
         for st in steps:
+            secs = 2.0 if st.get("optional") else 10.0
             try:
                 if "click" in st:
-                    loc = self.page.locator(st["click"])
-                    if await visible(loc):
+                    loc = await self._first([st["click"]], visible, secs)
+                    if loc:
                         await loc.first.click()
                     elif not st.get("optional"):
                         raise WebChatError("selector", f"step {st}: not found")
                 elif "pick" in st:
-                    for sel in st["pick"]:
-                        loc = self.page.locator(sel)
-                        if await usable(loc):
-                            await loc.first.click()
-                            break
-                    else:
-                        if not st.get("optional"):
-                            raise WebChatError("selector", f"step {st}: no usable option")
+                    loc = await self._first(st["pick"], usable, secs)
+                    if loc:
+                        await loc.first.click()
+                    elif not st.get("optional"):
+                        raise WebChatError("selector", f"step {st}: no usable option")
                 elif "key" in st:
                     if "on" in st:
-                        loc = self.page.locator(st["on"])
-                        if await visible(loc):
+                        loc = await self._first([st["on"]], visible, secs)
+                        if loc:
                             await loc.first.focus()
                             await self.page.keyboard.press(st["key"])
                         elif not st.get("optional"):
@@ -177,6 +197,10 @@ class Chat:
                 first_pick["pick"] = [self.s["model_option"].replace("{name}", model)]
                 first_pick.pop("optional", None)
         await self.run_steps(steps)
+        return await self.label()
+
+    async def label(self) -> str | None:
+        """The model/mode label the page shows now (None when the site has no such label)."""
         if self.s.get("model_label"):
             loc = self.page.locator(self.s["model_label"])
             if await visible(loc):
@@ -298,7 +322,7 @@ async def ask(session: Session, site: str, message: str, files: list[str] | None
     chat = Chat(session, site)
     t0 = time.time()
     fresh = await chat.open(f"{site}:{thread or '_'}", url)
-    label = await chat.prepare(model) if fresh or model else None
+    label = await chat.prepare(model) if fresh or model else await chat.label()
     if files:
         await chat.attach(files)
     before = await chat.answer_count()

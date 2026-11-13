@@ -6,7 +6,8 @@
   if (!last) return '';
   let root = last;
   if (answer) {
-    const parts = [...last.querySelectorAll(answer)];
+    // answer blocks inside the reasoning panel (some sites render thinking with the same markdown class) are not the answer
+    const parts = [...last.querySelectorAll(answer)].filter(p => !(thinking && p.closest(thinking)));
     if (parts.length) {
       root = document.createElement('div');
       parts.filter(p => !parts.some(q => q !== p && q.contains(p))).forEach(p => root.appendChild(p.cloneNode(true)));
@@ -17,7 +18,16 @@
     root = last.cloneNode(true);
   }
   if (thinking) root.querySelectorAll(thinking).forEach(e => e.remove());
-  root.querySelectorAll('button, svg, style, script, [aria-hidden=true]').forEach(e => e.remove());
+  root.querySelectorAll('button, [role=button], svg, style, script, [aria-hidden=true]').forEach(e => e.remove());
+  // code-block headers ("python  Copy") sit next to the <pre>: keep the language, drop the header
+  root.querySelectorAll('pre').forEach(pre => {
+    const head = pre.previousElementSibling;
+    const word = head && head.textContent.trim();
+    if (word && /^[\w+#.-]{1,20}$/.test(word) && !/^(P|H\d|LI|UL|OL|BLOCKQUOTE|TABLE|PRE)$/.test(head.tagName)) {
+      if (!/language-/.test((pre.querySelector('code') || pre).className)) pre.dataset.lang = word.toLowerCase();
+      head.remove();
+    }
+  });
 
   const cell = c => conv(c).replace(/\n+/g, ' ').replace(/\|/g, '\\|').trim();
   const conv = node => {
@@ -39,7 +49,7 @@
       case 'pre': {
         const code = node.querySelector('code');
         const lang = ((code && code.className) || '').match(/language-([\w+-]+)/);
-        return '\n\n```' + (lang ? lang[1] : '') + '\n' + (code || node).textContent.replace(/\n$/, '') + '\n```\n\n';
+        return '\n\n```' + (lang ? lang[1] : (node.dataset.lang || '')) + '\n' + (code || node).textContent.replace(/\n$/, '') + '\n```\n\n';
       }
       case 'ul': case 'ol': {
         const items = [...node.children].filter(c => c.tagName === 'LI');

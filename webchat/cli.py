@@ -19,6 +19,7 @@ from .browser import Session
 
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(prog="webchat", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("ask")
@@ -81,7 +82,11 @@ def main() -> None:
         for x in threads.history(cfg, args.thread, args.last):
             print(f"--- {x['at']}\n> {x['message']}\n\n{x['answer']}\n")
     else:
-        asyncio.run(run())
+        try:
+            asyncio.run(run())
+        except engine.WebChatError as e:
+            print(f"ERROR {e}", file=sys.stderr)
+            sys.exit(2)
 
 
 if __name__ == "__main__":

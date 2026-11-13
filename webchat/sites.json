@@ -1,5 +1,5 @@
 {
-  "_doc": "One entry per web chat. CSS selectors (Playwright syntax: :has-text(), :text-is() work). Steps: {click} | {pick:[...]} first visible+enabled wins | {key, on} | {wait}. 'verified' = the date the selectors were last checked against the live site; null = written from the site's known layout, check before trusting.",
+  "_doc": "One entry per web chat. CSS selectors (Playwright syntax: :has-text(), :text-is() work). Steps: {click} | {pick:[...]} first visible+enabled wins | {key, on} | {wait}; any step can be optional. dismiss: close buttons of nag popups the robot may close (never sign-in, terms or age answers). 'verified' = the date the selectors were last checked against the live site; null = written from the site's known layout, check before trusting.",
   "glm": {
     "name": "GLM (chat.z.ai)",
     "home": "https://chat.z.ai/",
@@ -57,6 +57,9 @@
       "text=В каком году вы родились",
       "text=What year were you born"
     ],
+    "dismiss": [
+      "[class*='welcome-modal'] button.ant-modal-close"
+    ],
     "model_steps": [
       {
         "click": "[aria-label='Select Model']"
@@ -85,7 +88,7 @@
     ],
     "model_label": "[aria-label='Select Model']",
     "model_option": "[role=option]:has-text('{name}')",
-    "verified": null
+    "verified": "2026-11-13"
   },
   "kimi": {
     "name": "Kimi (kimi.com)",
@@ -141,11 +144,11 @@
     "chat_url": "/a/chat/",
     "input": "textarea",
     "send": "enter",
-    "stop": "[aria-label*='Stop'], [class*='stop']",
+    "stop": ".ds-button--primary.ds-button--filled.ds-button--circle:not(.ds-button--disabled)",
     "message": "[class*='ds-message']:has(.ds-markdown)",
     "answer": ".ds-markdown",
     "thinking": "[class*='ds-think'], [class*='thinking']",
-    "copy": "[class*='copy']",
+    "copy": ".ds-message + .ds-flex .ds-button--icon:first-child",
     "file_input": "input[type=file]",
     "login_wall": [
       "url:/sign_in"
@@ -153,15 +156,16 @@
     "model_steps": [
       {
         "pick": [
-          "[role=button]:has-text('DeepThink'):not([class*='selected'])",
-          "[role=button]:has-text('深度思考'):not([class*='selected'])"
+          ".ds-toggle-button[aria-pressed=false]:has-text('Глубокое мышление')",
+          ".ds-toggle-button[aria-pressed=false]:has-text('DeepThink')",
+          ".ds-toggle-button[aria-pressed=false]:has-text('深度思考')"
         ],
         "optional": true
       }
     ],
-    "model_label": null,
+    "model_label": ".ds-toggle-button[aria-pressed=true]:has-text('Глубокое мышление'), .ds-toggle-button[aria-pressed=true]:has-text('DeepThink'), .ds-toggle-button[aria-pressed=true]:has-text('深度思考')",
     "model_option": null,
-    "verified": null
+    "verified": "2026-11-13"
   },
   "gemini": {
     "name": "Gemini (gemini.google.com)",

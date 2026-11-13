@@ -102,3 +102,23 @@ def test_sites_json_is_complete():
     for key, s in sites.items():
         for field in ("name", "home", "input", "send", "message", "model_steps"):
             assert field in s, f"{key} lacks {field}"
+
+
+async def test_dom_markdown_skips_reasoning_blocks_and_code_headers(session):
+    """Some sites render the reasoning with the answer's own markdown class, and put a language/Copy header next to
+    each <pre>: neither may leak into the answer."""
+    page = await session.tab("md")
+    await page.set_content(
+        "<div class='assistant'><div class='think'><div class='md'><p>secret reasoning</p></div></div>"
+        "<div class='md'><p>Result:</p><div class='code'><div class='hdr'>go<div role='button'>Copy</div></div>"
+        "<pre>fmt.Println(1)</pre></div><p>Output</p><pre><code class='language-sh'>go run .</code></pre></div></div>")
+    md = await page.evaluate(engine.JS_MD, {"message": ".assistant", "answer": ".md", "thinking": ".think"})
+    assert "secret" not in md and "Copy" not in md
+    assert "```go\nfmt.Println(1)\n```" in md
+    assert "Output" in md and "```sh\ngo run .\n```" in md
+    nag = engine.Chat(session, "fake")
+    nag.page = page
+    nag.s = dict(SITE, dismiss=["#x"])
+    await page.set_content("<div role='dialog'>Sign in to get more <button id='x' onclick='this.parentNode.remove()'>x"
+                           "</button></div>")
+    assert await nag.wall() is None
