@@ -21,6 +21,7 @@ DEFAULTS = {
     "stable": 3.0,                        # the answer must stop changing for this long after the stop button is gone
     "long_message": 30000,                # longer messages go as an attached .md file where the site takes files
     "max_tabs": 10,
+    "captcha_wait": 240,                  # seconds a captcha may stay up while a person solves it in the window
 }
 
 

@@ -38,7 +38,7 @@ async def session(tmp_path):
     profile = tempfile.mkdtemp(prefix="webchat-test-")
     cfg = config.load() | {"profile": profile, "cdp_port": 9355, "proxy": None, "headless": True,
                            "threads": str(tmp_path / "threads"), "shots": str(tmp_path / "shots"), "stable": 1.0,
-                           "timeout": 60, "usage": str(tmp_path / "usage.jsonl"), "answers": str(tmp_path / "answers")}
+                           "timeout": 60, "captcha_wait": 0, "usage": str(tmp_path / "usage.jsonl"), "answers": str(tmp_path / "answers")}
     cfg["site_defs"] = {"fake": SITE}
     s = Session(cfg)
     yield s
@@ -140,3 +140,22 @@ def test_long_answers_are_clipped_to_a_file(tmp_path):
     assert len(r["answer"]) < 800 and r["answer_chars"] == len(long)
     assert Path(r["answer_file"]).read_text(encoding="utf-8") == long
     assert engine.clip(cfg, {"answer": "short"}, 500) == {"answer": "short"}
+
+
+async def test_a_captcha_a_person_solves_in_time_is_waited_out(session):
+    """The robot never touches a captcha; it brings the tab forward and waits while a person solves it."""
+    page = await session.tab("captcha-wait")
+    await page.set_content("<div id='cap' role='dialog' style='position:fixed;inset:0;z-index:99;background:#fff'>"
+                           "Please complete security verification</div>"
+                           "<script>setTimeout(() => document.getElementById('cap').remove(), 3000)</script>")
+    chat = engine.Chat(session, "fake")
+    chat.page = page
+    session.cfg["captcha_wait"] = 15
+    assert await chat.wall() is None
+    assert 2 <= chat.captcha_waited < 15
+    session.cfg["captcha_wait"] = 0
+    await page.set_content("<div role='dialog' style='position:fixed;inset:0;z-index:99;background:#fff'>"
+                           "Please complete security verification</div>")
+    with pytest.raises(engine.WebChatError) as e:
+        await chat.wall()
+    assert e.value.kind == "captcha"

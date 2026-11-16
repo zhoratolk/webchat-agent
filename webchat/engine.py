@@ -78,6 +78,7 @@ class Chat:
         self.session, self.cfg, self.key = session, cfg, site
         self.s = cfg["site_defs"][site]
         self.page: Page | None = None
+        self.captcha_waited = 0.0   # seconds spent waiting for a person to solve a captcha (kept off the timers)
 
     # ---------- navigation and checks ----------
     async def shot(self, tag: str) -> str | None:
@@ -90,6 +91,10 @@ class Chat:
             return str(path)
         except Exception:  # noqa: BLE001
             return None
+
+    async def captcha_up(self) -> bool:
+        return bool(await visible(self.page.locator(CAPTCHA_CSS)) or
+                    await self.page.evaluate(JS_CENTER, CAPTCHA_TEXT.pattern))
 
     async def wall(self) -> str | None:
         """Text of the first login wall / blocking dialog that is showing, else None.
@@ -109,9 +114,18 @@ class Chat:
                     return f"page went to {self.page.url}"
             elif await visible(self.page.locator(w)):
                 return f"page shows {w!r}"
-        if await visible(self.page.locator(CAPTCHA_CSS)) or await self.page.evaluate(JS_CENTER, CAPTCHA_TEXT.pattern):
-            raise WebChatError("captcha", f"{self.s['name']}: the site shows a human check (captcha). A person must "
-                                          "solve it in the robot window; the robot never does", await self.shot("captcha"))
+        if await self.captcha_up():
+            # a person may solve it in the robot window: bring the tab forward and wait for them, never touch it
+            wait = float(self.cfg.get("captcha_wait", 0))
+            if wait > 0:
+                await self.page.bring_to_front()
+                t0 = time.time()
+                while time.time() - t0 < wait and await self.captcha_up():
+                    await asyncio.sleep(2)
+                self.captcha_waited += time.time() - t0
+            if await self.captcha_up():
+                raise WebChatError("captcha", f"{self.s['name']}: the site shows a human check (captcha). A person must "
+                                              "solve it in the robot window; the robot never does", await self.shot("captcha"))
         dialogs = self.page.locator("[role=dialog]:visible, [role=alertdialog]:visible")
         try:
             for i in range(min(await dialogs.count(), 3)):
@@ -256,7 +270,7 @@ class Chat:
         """Done = a new assistant message exists, the stop button is gone and the text has not changed for `stable` s."""
         stop = self.page.locator(self.s["stop"]) if self.s.get("stop") else None
         t0, last, since, started = time.time(), None, time.time(), False
-        while time.time() - t0 < timeout:
+        while time.time() - t0 - self.captcha_waited < timeout:
             await asyncio.sleep(1.0)
             if why := await self.wall():
                 raise WebChatError("login", f"{self.s['name']}: {why}. Sign in / answer it in the robot window, "
@@ -265,7 +279,7 @@ class Chat:
             if not started:
                 started = generating or await self.answer_count() > before
                 if not started:
-                    if time.time() - t0 > 90:
+                    if time.time() - t0 - self.captcha_waited > 90:
                         raise WebChatError("timeout", f"{self.s['name']}: no answer started in 90 s",
                                            await self.shot("nostart"))
                     continue
