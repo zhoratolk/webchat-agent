@@ -172,8 +172,8 @@
     "home": "https://gemini.google.com/app",
     "chat_url": "/app/",
     "input": "rich-textarea .ql-editor",
-    "send": "button.send-button",
-    "stop": "button[aria-label*='Stop']",
+    "send": "button.send-button, button[aria-label='Отправить сообщение'], button[aria-label='Send message']",
+    "stop": "button[aria-label*='Stop'], button[aria-label*='Остановить']",
     "message": "model-response",
     "answer": "message-content .markdown",
     "thinking": "model-thoughts",
@@ -202,6 +202,9 @@
     ],
     "model_label": "[data-test-id=bard-mode-menu-button]",
     "model_option": "[role=menuitemradio]:has-text('{name}')",
-    "verified": null
+    "verified": null,
+    "upload_open": "button[aria-label='Загрузка и инструменты'], button[aria-label*='upload' i]",
+    "file_input_images": "input[type=file][accept*='image']",
+    "attached": "button[aria-label='закрыть прикрепленный файл' i], button[aria-label*='Remove file' i]"
   }
 }

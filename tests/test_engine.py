@@ -142,6 +142,29 @@ def test_long_answers_are_clipped_to_a_file(tmp_path):
     assert engine.clip(cfg, {"answer": "short"}, 500) == {"answer": "short"}
 
 
+async def test_upload_behind_a_menu_opens_it_and_images_go_to_the_image_input(session, tmp_path):
+    """Gemini (11.2026) has no file input until its "+" menu is open, and keeps documents and images apart."""
+    page = await session.tab("menu-upload")
+    await page.set_content(
+        "<button id='plus' onclick=\"document.body.insertAdjacentHTML('beforeend',"
+        "'<div id=menu><input type=file id=docs accept=.txt,.pdf multiple>"
+        "<input type=file id=imgs accept=image/*,video/* multiple></div>')\">+</button>")
+    chat = engine.Chat(session, "fake")
+    chat.page = page
+    chat.s = dict(SITE, file_input="input[type=file]", file_input_images="input[type=file][accept*='image']",
+                  upload_open="#plus")
+    img = tmp_path / "grid.jpg"
+    img.write_bytes(b"\xff\xd8\xff\xe0jpg")
+    await chat.attach([str(img)])
+    assert await page.evaluate("document.getElementById('imgs').files.length") == 1
+    assert await page.evaluate("document.getElementById('docs').files.length") == 0
+    txt = tmp_path / "message.md"
+    txt.write_text("x", encoding="utf-8")
+    await page.evaluate("document.getElementById('menu').remove()")
+    await chat.attach([str(txt)])
+    assert await page.evaluate("document.getElementById('docs').files.length") == 1
+
+
 async def test_a_captcha_a_person_solves_in_time_is_waited_out(session):
     """The robot never touches a captcha; it brings the tab forward and waits while a person solves it."""
     page = await session.tab("captcha-wait")

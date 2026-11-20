@@ -17,6 +17,8 @@ from . import usage as U
 from .browser import Session
 from .config import PKG
 
+IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".heic"}
+
 JS_MD = (PKG / "js" / "to_markdown.js").read_text(encoding="utf-8")
 JS_HOOK = (PKG / "js" / "hook_copy.js").read_text(encoding="utf-8")
 JS_MARK = (PKG / "js" / "mark_copy.js").read_text(encoding="utf-8")
@@ -225,11 +227,37 @@ class Chat:
 
     # ---------- one turn ----------
     async def attach(self, files: list[str]) -> None:
-        loc = self.page.locator(self.s.get("file_input") or "input[type=file]")
+        """Gemini (11.2026) adds its file inputs only while the "+" menu is open (upload_open) and takes images
+        through a separate input (file_input_images), so both are site options."""
+        images = all(Path(f).suffix.lower() in IMAGE_EXT for f in files)
+        sel = (images and self.s.get("file_input_images")) or self.s.get("file_input") or "input[type=file]"
+        loc = self.page.locator(sel)
+        opened = False
+        if not await loc.count() and self.s.get("upload_open"):
+            await self.page.locator(self.s["upload_open"]).first.click(force=True)
+            opened = True
+            for _ in range(10):
+                if await loc.count():
+                    break
+                await asyncio.sleep(0.3)
+            await asyncio.sleep(1.0)   # files set on an input that has just appeared were silently dropped
         if not await loc.count():
             raise WebChatError("input", f"{self.s['name']}: no file upload here (signed out?)", await self.shot("nofile"))
         await loc.first.set_input_files(files)
+        if opened:
+            await asyncio.sleep(1.0)
+            await self.page.keyboard.press("Escape")
         await asyncio.sleep(1.5 + 1.0 * len(files))
+        if chip := self.s.get("attached"):   # Gemini sent the text alone when send came before the upload was done
+            n = 0
+            for _ in range(120):
+                n = await self.page.locator(chip).count()
+                if n >= len(files):
+                    break
+                await asyncio.sleep(0.5)
+            else:
+                raise WebChatError("input", f"{self.s['name']}: {n} of {len(files)} files attached",
+                                   await self.shot("attach"))
         if why := await self.wall():
             raise WebChatError("login", f"{self.s['name']}: upload asks to sign in ({why})", await self.shot("login"))
 
