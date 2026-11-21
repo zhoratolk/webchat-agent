@@ -205,6 +205,6 @@
     "verified": null,
     "upload_open": "button[aria-label='Загрузка и инструменты'], button[aria-label*='upload' i]",
     "file_input_images": "input[type=file][accept*='image']",
-    "attached": "button[aria-label='закрыть прикрепленный файл' i], button[aria-label*='Remove file' i]"
+    "attached": "button[aria-label='закрыть прикрепленный файл' i], button[aria-label*='Remove file' i], button[aria-label^='close ' i]"
   }
 }
